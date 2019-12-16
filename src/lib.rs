@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate actix_web;
 #[macro_use]
+extern crate diesel;
+#[macro_use]
 extern crate validator_derive;
 
 use std::{env, io};
@@ -12,8 +14,12 @@ use actix_web::{
 };
 use actix_session::{CookieSession, Session};
 
+mod schema;
 mod routes;
 mod db;
+mod models;
+
+
 
 use db::Pool;
 

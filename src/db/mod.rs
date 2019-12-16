@@ -4,8 +4,6 @@ use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 use dotenv::dotenv;
 
-
-
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 pub fn establish_connection_pool() -> Result<Pool, Box<dyn std::error::Error>> {

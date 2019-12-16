@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use validator::Validate;
 
+use actix_web::{error, middleware, web};
+
 use crate::db::Pool;
 
 #[derive(Deserialize)]
@@ -22,7 +24,7 @@ struct NewUserData {
 
 ///  Registration
 #[post("/users")]
-pub(crate) async fn post_users() -> &'static str {
+pub(crate) async fn post_users(user: web::Json<NewUser>, pool: web::Data<Pool>) -> &'static str {
     
     "users .." 
 }
