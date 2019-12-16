@@ -1,0 +1,27 @@
+[package]
+name = "realworld"
+version = "0.1.0"
+authors = ["Fish_ <liumy.f@outlook.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "2.0.0-alpha.6"
+actix-rt = "1.0.0"
+actix-session = "0.3.0-alpha.3"
+actix-utils = "1.0.3"
+
+diesel = { version = "1.4", features = ["postgres", "r2d2", "chrono"] }
+chrono = { version = "0.4.10", features = ["serde"] }
+r2d2 = "0.8"
+
+validator = "0.10.0"
+validator_derive = "0.10.0"
+serde = "1.0.104"
+serde_json = "1.0.44"
+futures = "0.3"
+log = "0.4"
+pretty_env_logger = "0.3.1"
+dotenv = "0.15.0"
+
