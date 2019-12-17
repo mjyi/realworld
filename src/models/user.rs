@@ -1,5 +1,5 @@
 use crate::schema::users;
-use serde::{ Serialize, Deserialize };
+use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 #[derive(Queryable, Serialize)]
@@ -20,5 +20,3 @@ pub struct NewUser<'a> {
     pub email: &'a str,
     pub hash: &'a str,
 }
-
-
