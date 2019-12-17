@@ -2,19 +2,18 @@ use actix_web::http::StatusCode;
 use actix_web::{web, ResponseError};
 use serde::Serialize;
 use serde_json::error::Error as JsonError;
-use std::collections::HashMap;
+use validator::{ValidationErrors, ValidationErrorsKind};
+use derive_more::{ From, Display};
 use std::io;
-use thiserror::Error;
-use validator::{ValidationError, ValidationErrors, ValidationErrorsKind};
+use std::collections::HashMap;
 
-#[derive(Error, Debug)]
+#[derive(Debug, From, Display)]
 pub enum Error {
-    #[error("Io `{0}`")]
-    Io(#[from] io::Error),
-    #[error("database `{0}`")]
-    Diesel(#[from] diesel::result::Error),
-    #[error("json_error `{0}`")]
-    SerdeJson(#[from] JsonError),
+    Io(io::Error),
+    #[display(fmt = "database error")]
+    Diesel(diesel::result::Error),
+    #[display(fmt = "Parse json error")]
+    SerdeJson(JsonError),
 }
 
 #[derive(Debug, Serialize)]
@@ -23,10 +22,8 @@ pub struct Errors {
 }
 
 
-
-#[derive(Error, Debug)]
-#[error("...")]
-pub struct FieldValidErrors(#[from] pub ValidationErrors);
+#[derive(Debug, From, Display)]
+pub struct FieldValidErrors(pub ValidationErrors);
 
 impl ResponseError for FieldValidErrors {
     fn error_response(&self) -> web::HttpResponse {
@@ -49,17 +46,3 @@ impl ResponseError for FieldValidErrors {
     }
 }
 
-// impl ResponseError for Error {
-
-//     fn error_response(&self) -> web::HttpResponse {
-//         match self {
-//             Diesel()
-
-
-
-//         }
-
-
-//     }
-
-// }

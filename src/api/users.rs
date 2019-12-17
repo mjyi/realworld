@@ -27,6 +27,18 @@ struct NewUserData {
     password: Option<String>,
 }
 
+
+#[derive(Deserialize)]
+struct LoginUser {
+    user: LoginUserData,
+}
+
+#[derive(Deserialize)]
+struct LoginUserData {
+    email: Option<String>,
+    password: Option<String>,
+}
+
 ///  Registration
 #[post("/users")]
 pub async fn post_users(
@@ -43,12 +55,13 @@ pub async fn post_users(
 
     let pool = pool.clone();
 
+    // TODO: 处理 error
     let user = web::block(move || create_user(pool, &username, &email, &password))
-        .await
-        .map_err(|_| HttpResponse::InternalServerError())?;
+        .await?;
 
     Ok(HttpResponse::Ok().json(user))
 }
+
 
 /// Authentication
 #[post("/users/login")]
@@ -86,3 +99,4 @@ fn create_user(
         .get_result::<User>(conn)
         .map_err(CError::Diesel)
 }
+
