@@ -7,8 +7,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::{self, Pool};
-use crate::errors::Error as CError;
-use crate::errors::FieldValidErrors;
+use crate::errors::{CliError, Errors};
 use crate::models::{NewUser, User};
 use crate::schema::users;
 
@@ -19,14 +18,13 @@ pub struct ReqUser {
 
 #[derive(Deserialize, Validate)]
 struct NewUserData {
-    #[validate(length(min = 1, message = "%s is not valid"))]
+    #[validate(length(min = 1, message = "username is not valid"))]
     username: Option<String>,
-    #[validate(email)]
+    #[validate(email(message = "Email is not valid"))]
     email: Option<String>,
-    #[validate(length(min = 8))]
+    #[validate(length(min = 8, message = "password is not valid"))]
     password: Option<String>,
 }
-
 
 #[derive(Deserialize)]
 struct LoginUser {
@@ -47,7 +45,7 @@ pub async fn post_users(
 ) -> Result<HttpResponse, Error> {
     let new_user = user.into_inner().user;
 
-    new_user.validate().map_err(FieldValidErrors)?;
+    new_user.validate().map_err(Errors::from)?;
 
     let username = new_user.username.unwrap();
     let email = new_user.email.unwrap();
@@ -56,12 +54,10 @@ pub async fn post_users(
     let pool = pool.clone();
 
     // TODO: 处理 error
-    let user = web::block(move || create_user(pool, &username, &email, &password))
-        .await?;
+    let user = web::block(move || create_user(pool, &username, &email, &password)).await?;
 
     Ok(HttpResponse::Ok().json(user))
 }
-
 
 /// Authentication
 #[post("/users/login")]
@@ -84,7 +80,7 @@ fn create_user(
     username: &str,
     email: &str,
     password: &str,
-) -> Result<User, CError> {
+) -> Result<User, CliError> {
     let conn = &pool.get().unwrap();
 
     let hash = &scrypt_simple(password, &ScryptParams::new(14, 8, 1))?;
@@ -97,6 +93,5 @@ fn create_user(
     diesel::insert_into(users::table)
         .values(new_user)
         .get_result::<User>(conn)
-        .map_err(CError::Diesel)
+        .map_err(CliError::Diesel)
 }
-

@@ -5,37 +5,50 @@ extern crate diesel;
 #[macro_use]
 extern crate validator_derive;
 
-use std::{env, io};
+use std::{error::Error, fmt, io};
 
 use actix_session::{CookieSession, Session};
 use actix_web::http::{header, Method, StatusCode};
 use actix_web::{
-    error, guard, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
+    error, guard, middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result,
 };
+use diesel::pg::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
 
-mod api;
-mod db;
-mod errors;
-mod models;
-mod schema;
+pub mod api;
+pub mod db;
+pub mod errors;
+pub mod schema;
+pub mod models;
 
-async fn index() -> &'static str {
-    "Hello world"
+use errors::CliError;
+
+#[derive(Clone)]
+pub struct AppConfig {
+    pool: Pool<ConnectionManager<PgConnection>>,
 }
 
-async fn login() -> &'static str {
-    "login"
+impl fmt::Debug for AppConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AppConfig")
+    }
 }
 
-pub async fn run() -> io::Result<()> {
-    let pool = db::establish_connection_pool().expect("cannot create db pool");
+fn db_pool(database_url: &str) -> Result<Pool<ConnectionManager<PgConnection>>, CliError> {
+    let manager = ConnectionManager::new(database_url);
+    let pool = Pool::builder().build(manager)?;
+    Ok(pool)
+}
+
+pub async fn run(database_url: &str) -> Result<(), errors::CliError> {
+    
+    let pool = db_pool(database_url)?;
 
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
             .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .wrap(middleware::Logger::new("%a \"%r\" :: %s :: %b bytes %T"))
-            .service(web::resource("/").route(web::get().to(index)))
             .service(
                 web::scope("/api")
                     .service(api::users::post_users)
@@ -46,5 +59,7 @@ pub async fn run() -> io::Result<()> {
     })
     .bind("127.0.0.1:8088")?
     .start()
-    .await
+    .await?;
+
+    Ok(())
 }

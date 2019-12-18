@@ -11,11 +11,9 @@ actix-web = "2.0.0-alpha.6"
 actix-rt = "1.0.0"
 actix-session = "0.3.0-alpha.3"
 actix-utils = "1.0.3"
-
 diesel = { version = "1.4", features = ["postgres", "r2d2", "chrono"] }
 chrono = { version = "0.4.10", features = ["serde"] }
 r2d2 = "0.8"
-
 validator = "0.10.0"
 validator_derive = "0.10.0"
 serde = { version = "1.0.104", features = ["derive"] }
@@ -24,6 +22,7 @@ futures = "0.3"
 log = "0.4"
 pretty_env_logger = "0.3.1"
 dotenv = "0.15.0"
+bcrypt = "0.6"
 rust-crypto = "0.2.36"
 derive_more = "0.99.0"
 

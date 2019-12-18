@@ -1,20 +1,29 @@
 use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
+use diesel::result::Error;
 use dotenv::dotenv;
 use std::env;
+use crate::errors::CliError;
+
+pub mod user;
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-pub fn establish_connection_pool() -> Result<Pool, Box<dyn std::error::Error>> {
-    dotenv().ok();
+pub trait Crud<T> {
+    fn create(conn: &PgConnection, form: &T) -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    let database_url = env::var("DATABASE_URL")?;
-    // .expect("DATABASE_URL must be set");
+    fn read(conn: &PgConnection, id: i32) -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
-    let pool = r2d2::Pool::builder().build(manager)?;
-    // .expect("Failed to create pool.");
+    fn update(conn: &PgConnection, id: i32, form: &T) -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    Ok(pool)
+    fn delete(conn: &PgConnection, id: i32) -> Result<usize, Error>
+    where
+        Self: Sized;
 }
+
