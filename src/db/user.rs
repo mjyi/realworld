@@ -1,10 +1,21 @@
-use crate::schema::users;
+extern crate jsonwebtoken as jwt;
 use serde::{ Serialize, Deserialize };
-use diesel::prelude::*;
-use diesel::result::Error;
+use diesel::{
+    prelude::*,
+    result::Error,
+    deserialize::Queryable,
+    pg::Pg,
+};
+use jwt::{ encode, decode, Header,TokenData, Algorithm, Validation };
 use super::Crud;
+use crate::{
+    schema::users,
+    auth::Claims,
+};
+use chrono::{Utc, Duration};
 
-#[derive(Queryable, Serialize)]
+
+#[derive(Debug, Serialize)]
 pub struct User {
     #[serde(skip_serializing)]
     pub id: i32,
@@ -12,15 +23,25 @@ pub struct User {
     pub email: String,
     pub bio: Option<String>,
     pub image: Option<String>,
+    #[serde(skip_serializing)]
+    pub password: String,
     pub token: String,
 }
 
-#[derive(Insertable)]
-#[table_name = "users"]
-pub struct NewUser<'a> {
-    pub username: &'a str,
-    pub email: &'a str,
-    pub password: &'a str,
+impl Queryable<users::SqlType, Pg> for User {
+    type Row = (i32, String, String, Option<String>, Option<String>, String);
+
+    fn build(row: Self::Row) -> Self {
+        User {
+            id: row.0,
+            username: row.1,
+            email: row.2,
+            bio: row.3,
+            image: row.4,
+            password: row.5,
+            token: "".to_string(),
+        }
+    }
 }
 
 
@@ -33,7 +54,6 @@ pub struct UserForm {
     pub image: Option<String>,
     pub username: Option<String>,
 }
-
 
 impl Crud<UserForm> for User {
     fn create(conn: &PgConnection, form: &UserForm) -> Result<Self, Error> {
@@ -54,5 +74,26 @@ impl Crud<UserForm> for User {
         diesel::delete(users::table.find(user_id)).execute(conn)
     }
 }
+
+impl User {
+    pub fn with_email(conn: &PgConnection, email: &str) -> Result<Self, Error> {
+        users::table
+            .filter(users::email.eq(email))
+            .get_result::<User>(conn)
+    }
+
+    pub fn jwt(&self, secret: &str) -> Jwt {
+        let exp = Utc::now() + Duration::days(30);
+        let my_claims = Claims {
+            id: self.id,
+            username: self.username.to_owned(),
+            exp: exp.timestamp(),
+        };
+        encode(&Header::default(), &my_claims, secret.as_ref()).unwrap()
+
+    }
+}
+
+type Jwt = String;
 
 

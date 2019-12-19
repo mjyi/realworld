@@ -20,6 +20,7 @@ pub mod db;
 pub mod errors;
 pub mod schema;
 pub mod models;
+pub mod auth;
 
 use errors::CliError;
 

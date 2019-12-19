@@ -35,9 +35,15 @@ pub struct Errors {
 impl Errors {
     pub fn new() -> Self {
         Errors {
-            status_code: StatusCode::OK,
+            status_code: StatusCode::UNPROCESSABLE_ENTITY,
             errors: HashMap::new(),
         }
+    }
+    
+    pub fn with_field(field: &'static str, error: &str) -> Self {
+        let mut e = Errors::new();
+        e.insert_error(field, error);
+        e
     }
 
     pub fn set_code(&mut self, code: StatusCode) {
@@ -45,7 +51,7 @@ impl Errors {
     }
 
     pub fn insert_error(&mut self, field: &'static str, error: &str) {
-        self.errors.insert(field, vec![error.to_string()]).unwrap();
+        self.errors.insert(field, vec![error.to_string()]);
     }
 }
 
@@ -89,6 +95,7 @@ impl From<ValidationErrors> for Errors {
 impl From<DieselError> for Errors {
     fn from(err: DieselError) -> Self {
         let mut errors = Errors::new();
+        errors.set_code(StatusCode::UNPROCESSABLE_ENTITY);
         if let DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, info) = &err {
             match info.constraint_name() {
                 Some("users_username_key") => errors.insert_error("username", "duplicated"),
