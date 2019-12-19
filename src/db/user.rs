@@ -1,12 +1,12 @@
 use crate::schema::users;
-use serde::{Deserialize, Serialize};
-use bcrypt::{hash, DEFAULT_COST};
+use serde::{ Serialize, Deserialize };
 use diesel::prelude::*;
 use diesel::result::Error;
-
+use super::Crud;
 
 #[derive(Queryable, Serialize)]
 pub struct User {
+    #[serde(skip_serializing)]
     pub id: i32,
     pub username: String,
     pub email: String,
@@ -20,26 +20,39 @@ pub struct User {
 pub struct NewUser<'a> {
     pub username: &'a str,
     pub email: &'a str,
-    pub hash: &'a str,
+    pub password: &'a str,
 }
 
 
-pub fn create_user(
-    conn: &PgConnection,
-    username: &str,
-    email: &str,
-    password: &str,
-) -> Result<User, Error> {
-    
-    let hash = hash(password, DEFAULT_COST).expect("Couldn't hash passowrd");
-    let new_user = &NewUser { 
-        username, 
-        email, 
-        hash: &hash 
-    };
-    
-    diesel::insert_into(users::table)
-        .values(new_user)
-        .get_result::<User>(conn)
+#[derive(Deserialize, Insertable, AsChangeset, Default, Clone)]
+#[table_name = "users"]
+pub struct UserForm {
+    pub email: Option<String>,
+    pub bio: Option<String>,
+    pub password: Option<String>,
+    pub image: Option<String>,
+    pub username: Option<String>,
 }
+
+
+impl Crud<UserForm> for User {
+    fn create(conn: &PgConnection, form: &UserForm) -> Result<Self, Error> {
+        diesel::insert_into(users::table).values(form).get_result::<User>(conn)
+    }
+
+    fn read(conn: &PgConnection, user_id: i32) -> Result<Self, Error> {
+        users::table.find(user_id).get_result::<User>(conn)
+    }
+
+    fn update(conn: &PgConnection, user_id: i32, form: &UserForm) -> Result<Self, Error> {
+        diesel::update(users::table.find(user_id))
+            .set(form)
+            .get_result::<User>(conn)
+    }
+
+    fn delete(conn: &PgConnection, user_id: i32) -> Result<usize, Error> {
+        diesel::delete(users::table.find(user_id)).execute(conn)
+    }
+}
+
 

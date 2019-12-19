@@ -1,13 +1,11 @@
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::result::Error;
-use dotenv::dotenv;
-use std::env;
-use crate::errors::CliError;
 
 pub mod user;
 
-pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub use user::{User, UserForm};
+
 
 pub trait Crud<T> {
     fn create(conn: &PgConnection, form: &T) -> Result<Self, Error>

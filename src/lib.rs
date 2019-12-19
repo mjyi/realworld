@@ -13,7 +13,7 @@ use actix_web::{
     error, guard, middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result,
 };
 use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{self, ConnectionManager};
 
 pub mod api;
 pub mod db;
@@ -23,9 +23,12 @@ pub mod models;
 
 use errors::CliError;
 
+
+pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+
 #[derive(Clone)]
 pub struct AppConfig {
-    pool: Pool<ConnectionManager<PgConnection>>,
+    pool: Pool,
 }
 
 impl fmt::Debug for AppConfig {
@@ -34,7 +37,7 @@ impl fmt::Debug for AppConfig {
     }
 }
 
-fn db_pool(database_url: &str) -> Result<Pool<ConnectionManager<PgConnection>>, CliError> {
+fn db_pool(database_url: &str) -> Result<Pool, CliError> {
     let manager = ConnectionManager::new(database_url);
     let pool = Pool::builder().build(manager)?;
     Ok(pool)

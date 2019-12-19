@@ -1,13 +1,16 @@
-use actix_web::http::StatusCode;
-use actix_web::{web, ResponseError};
-use derive_more::{Display, From};
-use diesel::result::Error as DieselError;
+use std::{collections::HashMap, fmt, io};
 use serde::Serialize;
 use serde_json::error::Error as JsonError;
-use std::collections::HashMap;
-use std::fmt;
-use std::io;
+use actix_web::{
+    web, 
+    http::StatusCode,
+    error::BlockingError,
+    ResponseError
+};
+use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use validator::{ValidationErrors, ValidationErrorsKind};
+use derive_more::{Display, From};
+
 
 #[derive(Debug, From, Display)]
 pub enum CliError {
@@ -20,16 +23,30 @@ pub enum CliError {
     EnvError(std::env::VarError),
 }
 
-impl std::error::Error for CliError {
-
-}
-
+impl std::error::Error for CliError {}
 
 #[derive(Debug, Serialize)]
 pub struct Errors {
     #[serde(skip_serializing)]
     status_code: StatusCode,
     errors: HashMap<&'static str, Vec<String>>,
+}
+
+impl Errors {
+    pub fn new() -> Self {
+        Errors {
+            status_code: StatusCode::OK,
+            errors: HashMap::new(),
+        }
+    }
+
+    pub fn set_code(&mut self, code: StatusCode) {
+        self.status_code = code
+    }
+
+    pub fn insert_error(&mut self, field: &'static str, error: &str) {
+        self.errors.insert(field, vec![error.to_string()]).unwrap();
+    }
 }
 
 impl fmt::Display for Errors {
@@ -65,6 +82,31 @@ impl From<ValidationErrors> for Errors {
         Self {
             status_code: StatusCode::UNPROCESSABLE_ENTITY,
             errors: hash_map,
+        }
+    }
+}
+
+impl From<DieselError> for Errors {
+    fn from(err: DieselError) -> Self {
+        let mut errors = Errors::new();
+        if let DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, info) = &err {
+            match info.constraint_name() {
+                Some("users_username_key") => errors.insert_error("username", "duplicated"),
+                Some("users_email_key") => errors.insert_error("email", "duplicated"),
+                _ => (),
+            }
+        }
+
+        errors
+    }
+}
+
+
+impl From<BlockingError<DieselError>> for Errors {
+    fn from(err: BlockingError<DieselError>) -> Self {
+        match err {
+            BlockingError::Error(e) =>Errors::from(e),
+            _ => Errors::new(),
         }
     }
 }

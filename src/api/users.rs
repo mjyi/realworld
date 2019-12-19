@@ -1,15 +1,15 @@
 use serde::Deserialize;
 use validator::Validate;
-
+use bcrypt::{hash, DEFAULT_COST};
 use actix_web::{error, middleware, web, Error, HttpResponse};
-use crypto::scrypt::{scrypt_check, scrypt_simple, ScryptParams};
-use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::{self, Pool};
-use crate::errors::{CliError, Errors};
-use crate::models::{NewUser, User};
-use crate::schema::users;
+use crate::{
+    db::{Crud , User, UserForm},
+    Pool,
+    errors::Errors,
+};
+
 
 #[derive(Deserialize)]
 pub struct ReqUser {
@@ -22,9 +22,10 @@ struct NewUserData {
     username: Option<String>,
     #[validate(email(message = "Email is not valid"))]
     email: Option<String>,
-    #[validate(length(min = 8, message = "password is not valid"))]
+    #[validate(length(min = 8, message = "password is to0 short"))]
     password: Option<String>,
 }
+
 
 #[derive(Deserialize)]
 struct LoginUser {
@@ -42,7 +43,7 @@ struct LoginUserData {
 pub async fn post_users(
     user: web::Json<ReqUser>,
     pool: web::Data<Pool>,
-) -> Result<HttpResponse, Error> {
+    ) -> Result<HttpResponse, Error> {
     let new_user = user.into_inner().user;
 
     new_user.validate().map_err(Errors::from)?;
@@ -51,13 +52,26 @@ pub async fn post_users(
     let email = new_user.email.unwrap();
     let password = new_user.password.unwrap();
 
-    let pool = pool.clone();
+    let hashed = hash(&password, DEFAULT_COST).unwrap();
 
-    // TODO: 处理 error
-    let user = web::block(move || create_user(pool, &username, &email, &password)).await?;
+    let user_form = UserForm {
+        username: Some(username),
+        password: Some(hashed),
+        email: Some(email),
+        bio: None,
+        image: None,
+    };
 
+    let user = web::block(move || {
+        let conn = pool.get().unwrap();
+        User::create(&conn, &user_form)
+    })
+    .await
+    .map_err(Errors::from)?;
+    
     Ok(HttpResponse::Ok().json(user))
 }
+
 
 /// Authentication
 #[post("/users/login")]
@@ -75,23 +89,3 @@ pub(crate) async fn put_user() -> &'static str {
     "put user"
 }
 
-fn create_user(
-    pool: web::Data<Pool>,
-    username: &str,
-    email: &str,
-    password: &str,
-) -> Result<User, CliError> {
-    let conn = &pool.get().unwrap();
-
-    let hash = &scrypt_simple(password, &ScryptParams::new(14, 8, 1))?;
-    let new_user = &NewUser {
-        username,
-        email,
-        hash,
-    };
-
-    diesel::insert_into(users::table)
-        .values(new_user)
-        .get_result::<User>(conn)
-        .map_err(CliError::Diesel)
-}

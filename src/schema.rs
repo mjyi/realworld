@@ -5,6 +5,6 @@ table! {
         email -> Text,
         bio -> Nullable<Text>,
         image -> Nullable<Text>,
-        hash -> Text,
+        password -> Text,
     }
 }
