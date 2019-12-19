@@ -101,11 +101,9 @@ pub(crate) async fn login(
 }
 
 #[get("/user")]
-pub(crate) async fn get_user(token: Result<Claims>) -> Result<HttpResponse, Error> {
-    match token {
-        Ok(claims) => Ok(HttpResponse::Ok().json(claims)),
-        Err(e) => Err(e),
-    }  
+pub(crate) async fn get_user(token: Claims) -> Result<HttpResponse, Error> {
+
+    Ok(HttpResponse::Ok().json(token))
 }
 
 #[put("/user")]
