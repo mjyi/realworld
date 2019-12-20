@@ -26,7 +26,7 @@ impl FromRequest for Auth {
     type Future = Ready<Result<Self, Self::Error>>;
     type Config = ();
 
-    fn from_request(req: &HttpRequest, payload: &mut dev::Payload) -> Self::Future {
+    fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
         let headers = req.headers();
         if !headers.contains_key(AUTHORIZATION) {
             return err(ErrorUnauthorized(""));

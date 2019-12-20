@@ -1,8 +1,11 @@
 use diesel::pg::PgConnection;
 use diesel::result::Error;
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 mod profile;
 mod user;
+mod articles;
 
 pub use profile::Profile;
 pub use user::{User, UserForm};
@@ -24,3 +27,9 @@ pub trait Crud<T> {
     where
         Self: Sized;
 }
+
+// pub const DATE_FORMAT: &'static str = "%Y-%m-%dT%H:%M:%S%.3fZ";
+
+
+
+

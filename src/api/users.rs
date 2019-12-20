@@ -1,4 +1,4 @@
-use actix_web::{error, middleware, web, Error, HttpResponse, Result};
+use actix_web::{web, Error, HttpResponse, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use serde::Deserialize;
 use validator::Validate;

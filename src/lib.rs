@@ -8,6 +8,7 @@ extern crate validator_derive;
 use actix_web::{
     middleware, web, App, HttpServer, Result,
 };
+use actix_cors::Cors;
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 use dotenv::dotenv;
@@ -75,13 +76,17 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
+            .wrap( Cors::new().max_age(3600).finish(),)
             .wrap(middleware::Logger::new("%a \"%r\" :: %s :: %b bytes %T"))
             .service(
                 web::scope("/api")
                     .service(api::users::post_users)
                     .service(api::users::login)
                     .service(api::users::get_user)
-                    .service(api::users::put_user),
+                    .service(api::users::put_user)
+                    .service(api::profile::get_profiles)
+                    .service(api::profile::follow)
+                    .service(api::profile::unfollow)
             )
     })
     .bind((settings.bind, settings.port))?

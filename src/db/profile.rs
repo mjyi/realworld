@@ -1,9 +1,9 @@
-use super::User;
+use super::*;
 use crate::schema::*;
 use diesel::{dsl::exists, prelude::*, result::Error};
-use serde::Serialize;
+use serde::{ Serialize, Deserialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Profile {
     pub username: String,
     pub bio: Option<String>,
@@ -39,11 +39,25 @@ impl Profile {
         Ok(f)
     }
 
-    pub fn follow(conn: &PgConnection, followed: i32, follower: i32) -> Result<Self, Error> {
-        todo!();
+    pub fn follow(conn: &PgConnection, followed_name: &str, follower: i32) -> Result<Self, Error> {
+        let followed = User::with_username(conn, followed_name)?;
+        diesel::insert_into(follows::table)
+            .values((
+                follows::follower.eq(follower),
+                follows::followed.eq(followed.id),
+            ))
+            .execute(conn)?;
+
+        Ok(followed.to_profile(true))
+
     }
 
-    pub fn unfollow(conn: &PgConnection, followed: i32, follower: i32) -> Result<Self, Error> {
-        todo!()
+    pub fn unfollow(conn: &PgConnection, followed_name: &str, follower: i32) -> Result<Self, Error> {
+        let followed = User::with_username(conn, followed_name)?;
+
+        diesel::delete(follows::table.find((follower, followed.id)))
+            .execute(conn)?;
+
+        Ok(followed.to_profile(false))
     }
 }

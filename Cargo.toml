@@ -9,8 +9,7 @@ edition = "2018"
 [dependencies]
 actix-web = "2.0.0-alpha.6"
 actix-rt = "1.0.0"
-actix-session = "0.3.0-alpha.3"
-actix-utils = "1.0.3"
+actix-cors = "0.2.0-alpha"
 diesel = { version = "1.4", features = ["postgres", "r2d2", "chrono"] }
 chrono = { version = "0.4.10", features = ["serde"] }
 r2d2 = "0.8"

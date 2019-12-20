@@ -1,5 +1,6 @@
 extern crate jsonwebtoken as jwt;
-use super::Crud;
+use super::{ Profile, Crud };
+
 use crate::{
     auth::{Claims, Jwt},
     schema::users,
@@ -91,5 +92,14 @@ impl User {
             exp: exp.timestamp(),
         };
         encode(&Header::default(), &my_claims, secret.as_ref()).unwrap()
+    }
+
+    pub fn to_profile(self, following: bool) -> Profile {
+        Profile {
+            username: self.username,
+            bio: self.bio,
+            image: self.image,
+            following,
+        }
     }
 }
