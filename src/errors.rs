@@ -1,16 +1,10 @@
-use std::{collections::HashMap, fmt, io};
+use actix_web::{error::BlockingError, http::StatusCode, web, ResponseError};
+use derive_more::{Display, From};
+use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use serde::Serialize;
 use serde_json::error::Error as JsonError;
-use actix_web::{
-    web, 
-    http::StatusCode,
-    error::BlockingError,
-    ResponseError
-};
-use diesel::result::{DatabaseErrorKind, Error as DieselError};
+use std::{collections::HashMap, fmt, io};
 use validator::{ValidationErrors, ValidationErrorsKind};
-use derive_more::{Display, From};
-
 
 #[derive(Debug, From, Display)]
 pub enum CliError {
@@ -39,7 +33,7 @@ impl Errors {
             errors: HashMap::new(),
         }
     }
-    
+
     pub fn with_field(field: &'static str, error: &str) -> Self {
         let mut e = Errors::new();
         e.insert_error(field, error);
@@ -69,7 +63,7 @@ impl From<ValidationErrors> for Errors {
             .filter_map(|(k, v)| {
                 if let ValidationErrorsKind::Field(errors) = v {
                     let vec = errors
-                        .into_iter()
+                        .iter()
                         .map(|f| {
                             let code = f.code.to_string();
                             match &f.message {
@@ -108,11 +102,10 @@ impl From<DieselError> for Errors {
     }
 }
 
-
 impl From<BlockingError<DieselError>> for Errors {
     fn from(err: BlockingError<DieselError>) -> Self {
         match err {
-            BlockingError::Error(e) =>Errors::from(e),
+            BlockingError::Error(e) => Errors::from(e),
             _ => Errors::new(),
         }
     }

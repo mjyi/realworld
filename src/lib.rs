@@ -5,25 +5,50 @@ extern crate diesel;
 #[macro_use]
 extern crate validator_derive;
 
-use std::{error::Error, fmt, io};
-
-use actix_session::{CookieSession, Session};
-use actix_web::http::{header, Method, StatusCode};
 use actix_web::{
-    error, guard, middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result,
+    middleware, web, App, HttpServer, Result,
 };
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
+use dotenv::dotenv;
+use std::net::IpAddr;
+use std::{env, fmt};
 
 pub mod api;
+pub mod auth;
 pub mod db;
 pub mod errors;
-pub mod schema;
 pub mod models;
-pub mod auth;
+pub mod schema;
 
 use errors::CliError;
 
+pub struct Settings {
+    pub database_url: String,
+    pub jwt_secret: String,
+    pub hostname: String,
+    pub bind: IpAddr,
+    pub port: u16,
+}
+
+impl Settings {
+    pub fn get() -> Self {
+        dotenv().ok();
+        Settings {
+            database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+            jwt_secret: env::var("JWT_SECRET").expect("JWT_SECRET must be set"),
+            hostname: env::var("HOSTNAME").unwrap_or_else(|_| "www".to_string()),
+            bind: env::var("BIND")
+                .unwrap_or_else(|_| "0.0.0.0".to_string())
+                .parse()
+                .unwrap(),
+            port: env::var("PORT")
+                .unwrap_or_else(|_| "8088".to_string())
+                .parse()
+                .unwrap(),
+        }
+    }
+}
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -44,14 +69,12 @@ fn db_pool(database_url: &str) -> Result<Pool, CliError> {
     Ok(pool)
 }
 
-pub async fn run(database_url: &str) -> Result<(), errors::CliError> {
-    
-    let pool = db_pool(database_url)?;
+pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
+    let pool = db_pool(&settings.database_url)?;
 
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
-            .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .wrap(middleware::Logger::new("%a \"%r\" :: %s :: %b bytes %T"))
             .service(
                 web::scope("/api")
@@ -61,7 +84,7 @@ pub async fn run(database_url: &str) -> Result<(), errors::CliError> {
                     .service(api::users::put_user),
             )
     })
-    .bind("127.0.0.1:8088")?
+    .bind((settings.bind, settings.port))?
     .start()
     .await?;
 

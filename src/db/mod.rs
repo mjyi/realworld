@@ -1,11 +1,11 @@
 use diesel::pg::PgConnection;
-use diesel::r2d2::{self, ConnectionManager};
 use diesel::result::Error;
 
-pub mod user;
+mod profile;
+mod user;
 
+pub use profile::Profile;
 pub use user::{User, UserForm};
-
 
 pub trait Crud<T> {
     fn create(conn: &PgConnection, form: &T) -> Result<Self, Error>
@@ -24,4 +24,3 @@ pub trait Crud<T> {
     where
         Self: Sized;
 }
-

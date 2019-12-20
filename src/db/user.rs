@@ -1,19 +1,13 @@
 extern crate jsonwebtoken as jwt;
-use serde::{ Serialize, Deserialize };
-use diesel::{
-    prelude::*,
-    result::Error,
-    deserialize::Queryable,
-    pg::Pg,
-};
-use jwt::{ encode, decode, Header,TokenData, Algorithm, Validation };
 use super::Crud;
 use crate::{
+    auth::{Claims, Jwt},
     schema::users,
-    auth::Claims,
 };
-use chrono::{Utc, Duration};
-
+use chrono::{Duration, Utc};
+use diesel::{deserialize::Queryable, pg::Pg, prelude::*, result::Error};
+use jwt::{ encode, Header };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct User {
@@ -44,7 +38,6 @@ impl Queryable<users::SqlType, Pg> for User {
     }
 }
 
-
 #[derive(Deserialize, Insertable, AsChangeset, Default, Clone)]
 #[table_name = "users"]
 pub struct UserForm {
@@ -57,7 +50,9 @@ pub struct UserForm {
 
 impl Crud<UserForm> for User {
     fn create(conn: &PgConnection, form: &UserForm) -> Result<Self, Error> {
-        diesel::insert_into(users::table).values(form).get_result::<User>(conn)
+        diesel::insert_into(users::table)
+            .values(form)
+            .get_result::<User>(conn)
     }
 
     fn read(conn: &PgConnection, user_id: i32) -> Result<Self, Error> {
@@ -82,6 +77,12 @@ impl User {
             .get_result::<User>(conn)
     }
 
+    pub fn with_username(conn: &PgConnection, username: &str) -> Result<Self, Error> {
+        users::table
+            .filter(users::username.eq(username))
+            .get_result::<User>(conn)
+    }
+
     pub fn jwt(&self, secret: &str) -> Jwt {
         let exp = Utc::now() + Duration::days(30);
         let my_claims = Claims {
@@ -90,10 +91,5 @@ impl User {
             exp: exp.timestamp(),
         };
         encode(&Header::default(), &my_claims, secret.as_ref()).unwrap()
-
     }
 }
-
-type Jwt = String;
-
-

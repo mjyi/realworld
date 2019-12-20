@@ -1,16 +1,14 @@
+use actix_web::{error, middleware, web, Error, HttpResponse, Result};
+use bcrypt::{hash, verify, DEFAULT_COST};
 use serde::Deserialize;
 use validator::Validate;
-use bcrypt::{hash, verify, DEFAULT_COST};
-use actix_web::{error, Result, middleware, web, Error, HttpResponse};
-use diesel::r2d2::{self, ConnectionManager};
 
 use crate::{
-    db::{Crud , User, UserForm},
-    Pool,
+    auth::Auth,
+    db::{Crud, User, UserForm},
     errors::Errors,
-    auth::Claims,
+    Pool,
 };
-
 
 #[derive(Deserialize)]
 pub struct ReqUser {
@@ -27,13 +25,12 @@ struct NewUserData {
     password: Option<String>,
 }
 
-
 ///  Registration
 #[post("/users")]
 pub async fn post_users(
     user: web::Json<ReqUser>,
     pool: web::Data<Pool>,
-    ) -> Result<HttpResponse, Error> {
+) -> Result<HttpResponse, Error> {
     let new_user = user.into_inner().user;
 
     new_user.validate().map_err(Errors::from)?;
@@ -58,10 +55,9 @@ pub async fn post_users(
     })
     .await
     .map_err(Errors::from)?;
-    
+
     Ok(HttpResponse::Ok().json(user))
 }
-
 
 #[derive(Deserialize)]
 pub struct LoginUser {
@@ -74,40 +70,65 @@ struct LoginUserData {
     password: String,
 }
 
-
 /// Authentication
 #[post("/users/login")]
 pub(crate) async fn login(
     user: web::Json<LoginUser>,
-    pool: web::Data<Pool>
+    pool: web::Data<Pool>,
 ) -> Result<HttpResponse, Error> {
     let login_user = user.into_inner().user;
     let email = login_user.email.clone();
-    let db_user = web::block(move || {
+    let mut db_user = web::block(move || {
         let conn = pool.get().unwrap();
         User::with_email(&conn, &email)
     })
     .await
     .map_err(|_| Errors::with_field("email", "the email is not registered"))?;
-    
+
     let valid = verify(&login_user.password, &db_user.password)
         .map_err(|_| Errors::with_field("password", "incorrectly"))?;
     if !valid {
         return Err(Errors::with_field("password", "incorrectly"))?;
     }
 
+    let jwt = db_user.jwt("secret");
+    db_user.token = jwt;
+
     Ok(HttpResponse::Ok().json(db_user))
-        
 }
 
 #[get("/user")]
-pub(crate) async fn get_user(token: Claims) -> Result<HttpResponse, Error> {
+pub(crate) async fn get_user(auth: Auth, pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
+    let id = auth.claims.id;
 
-    Ok(HttpResponse::Ok().json(token))
+    let mut user = web::block(move || {
+        let conn = pool.get().unwrap();
+        User::read(&conn, id)
+    })
+    .await
+    .map_err(Errors::from)?;
+
+    user.token = auth.jwt;
+
+    Ok(HttpResponse::Ok().json(user))
 }
 
 #[put("/user")]
-pub(crate) async fn put_user() -> &'static str {
-    "put user"
-}
+pub(crate) async fn put_user(
+    auth: Auth,
+    user_form: web::Json<UserForm>,
+    pool: web::Data<Pool>,
+) -> Result<HttpResponse, Error> {
+    let id = auth.claims.id;
 
+    let mut user = web::block(move || {
+        let conn = pool.get().unwrap();
+        User::update(&conn, id, &user_form)
+    })
+    .await
+    .map_err(Errors::from)?;
+
+    user.token = auth.jwt;
+
+    Ok(HttpResponse::Ok().json(user))
+}

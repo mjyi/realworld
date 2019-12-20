@@ -1,16 +1,16 @@
-use std::{env, io};
-use dotenv::dotenv;
-use realworld::errors::CliError;
+use realworld::{errors::CliError, Settings};
+use std::env;
 
 #[actix_rt::main]
 async fn main() -> Result<(), CliError> {
-    env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
+    env::set_var(
+        "RUST_LOG",
+        "actix_web=debug,actix_server=info,realworld::diesel=debug",
+    );
     pretty_env_logger::init();
 
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL")?;
-
-    realworld::run(&database_url).await?;
+    let settings = Settings::get();
+    realworld::run(settings).await?;
 
     Ok(())
 }

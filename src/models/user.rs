@@ -1,6 +1,6 @@
-use crate::schema::users;
-use serde::{Deserialize, Serialize};
-use validator::Validate;
+// use crate::schema::users;
+// use serde::{Deserialize, Serialize};
+// use validator::Validate;
 
 // #[derive(Queryable, Serialize)]
 // pub struct User {
