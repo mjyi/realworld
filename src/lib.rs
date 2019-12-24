@@ -4,6 +4,8 @@ extern crate actix_web;
 extern crate diesel;
 #[macro_use]
 extern crate validator_derive;
+#[macro_use]
+extern crate serde_json;
 
 use actix_web::{
     middleware, web, App, HttpServer, Result,
@@ -87,6 +89,16 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
                     .service(api::profile::get_profiles)
                     .service(api::profile::follow)
                     .service(api::profile::unfollow)
+                    .service(api::articles::get_article)
+                    .service(api::articles::create_article)
+                    .service(api::articles::update_article)
+                    .service(api::articles::delete_article)
+                    .service(api::articles::add_comment)
+                    .service(api::articles::get_comments)
+                    .service(api::articles::delete_comment)
+                    .service(api::articles::favorite)
+                    .service(api::articles::unfavorite)
+                    .service(api::articles::tags)
             )
     })
     .bind((settings.bind, settings.port))?

@@ -5,10 +5,12 @@ use serde::{Serialize, Deserialize};
 
 mod profile;
 mod user;
-mod articles;
+mod article;
+mod comment;
 
 pub use profile::Profile;
 pub use user::{User, UserForm};
+pub use article::*;
 
 pub trait Crud<T> {
     fn create(conn: &PgConnection, form: &T) -> Result<Self, Error>
