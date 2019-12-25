@@ -2,7 +2,7 @@ use actix_web::{web, Error, HttpResponse, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use serde::Deserialize;
 use crate::{
-    db::{ArticleQuery, Articles,ArticleForm, Article},
+    db::article::{self, ArticleQuery, Articles, Article, ArticleForm},
     Pool,
     auth::Auth,
     errors::Errors,
@@ -74,7 +74,7 @@ pub async fn create_article(
 
     let article = web::block(move || {
         let conn = pool.get().unwrap();
-        Article::create(&conn, &article_form)
+        article::create(&conn, &article_form)
     })
     .await
     .map_err(Errors::from)?;

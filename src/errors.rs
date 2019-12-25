@@ -94,7 +94,7 @@ impl From<DieselError> for Errors {
             match info.constraint_name() {
                 Some("users_username_key") => errors.insert_error("username", "duplicated"),
                 Some("users_email_key") => errors.insert_error("email", "duplicated"),
-                _ => (),
+                _ => errors.insert_error("constraint", "data already exists"),
             }
         }
 

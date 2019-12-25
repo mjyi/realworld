@@ -33,6 +33,15 @@ impl Profile {
         })
     }
 
+    pub fn find_follered(conn: &PgConnection, follower: i32, followed: i32) -> Result<Self, Error> {
+        let p: Profile = users::table
+            .left_join(follows::table.on(follows::followed.eq(users::id)))
+            .select((users::all_columns, follows::followed.nullable().is_not_null()))
+            .get_result::<(User, bool)>(conn)
+            .map(|(user, following)| user.to_profile(following))?;
+        Ok(p)
+    }
+
     fn is_following(conn: &PgConnection, followed: i32, follower: i32) -> Result<bool, Error> {
         let f = diesel::select(exists(follows::table.find((followed, follower))))
             .get_result::<bool>(conn)?;
