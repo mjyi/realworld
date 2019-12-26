@@ -1,6 +1,6 @@
 use actix_web::{web, Error, HttpResponse, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
-use serde::Deserialize;
+use serde::{ Serialize, Deserialize };
 use validator::Validate;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-pub struct ReqUser {
+pub struct NewUser {
     user: NewUserData,
 }
 
@@ -25,10 +25,27 @@ struct NewUserData {
     password: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateUser {
+    user: UserForm
+}
+
+#[derive(Serialize)]
+pub struct UserResult {
+    pub user: User,
+}
+
+impl UserResult {
+    fn new(user: User) -> Self {
+        UserResult { user }
+    }
+}
+
+
 ///  Registration
 #[post("/users")]
 pub async fn post_users(
-    user: web::Json<ReqUser>,
+    user: web::Json<NewUser>,
     pool: web::Data<Pool>,
 ) -> Result<HttpResponse, Error> {
     let new_user = user.into_inner().user;
@@ -56,7 +73,7 @@ pub async fn post_users(
     .await
     .map_err(Errors::from)?;
 
-    Ok(HttpResponse::Ok().json(user))
+    Ok(HttpResponse::Ok().json(UserResult::new(user)))
 }
 
 #[derive(Deserialize)]
@@ -94,21 +111,22 @@ pub(crate) async fn login(
     let jwt = db_user.jwt("secret");
     db_user.token = jwt;
 
-    Ok(HttpResponse::Ok().json(db_user))
+    Ok(HttpResponse::Ok().json(UserResult::new(db_user)))
 }
 
 #[get("/user")]
 pub(crate) async fn get_user(auth: Auth, pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
     let id = auth.claims.id;
 
-    let mut user = web::block(move || {
+    let user = web::block(move || {
         let conn = pool.get().unwrap();
         User::read(&conn, id)
     })
     .await
+    .map(|mut u| { u.token = auth.jwt; UserResult::new(u) })
     .map_err(Errors::from)?;
 
-    user.token = auth.jwt;
+    // user.token = auth.jwt;
 
     Ok(HttpResponse::Ok().json(user))
 }
@@ -116,19 +134,19 @@ pub(crate) async fn get_user(auth: Auth, pool: web::Data<Pool>) -> Result<HttpRe
 #[put("/user")]
 pub(crate) async fn put_user(
     auth: Auth,
-    user_form: web::Json<UserForm>,
+    user_form: web::Json<UpdateUser>,
     pool: web::Data<Pool>,
 ) -> Result<HttpResponse, Error> {
     let id = auth.claims.id;
+    let user_form = user_form.into_inner().user;
 
-    let mut user = web::block(move || {
+    let user = web::block(move || {
         let conn = pool.get().unwrap();
         User::update(&conn, id, &user_form)
     })
     .await
+    .map(|mut u| { u.token = auth.jwt; UserResult::new(u) })
     .map_err(Errors::from)?;
-
-    user.token = auth.jwt;
 
     Ok(HttpResponse::Ok().json(user))
 }

@@ -5,7 +5,7 @@ use std::env;
 async fn main() -> Result<(), CliError> {
     env::set_var(
         "RUST_LOG",
-        "actix_web=debug,actix_server=info,realworld::diesel=debug",
+        "actix_web=debug,actix_server=info,realworld::diesel=debug,realworld=debug",
     );
     pretty_env_logger::init();
 

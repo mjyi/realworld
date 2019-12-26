@@ -44,10 +44,16 @@ impl Errors {
         self.status_code = code
     }
 
+    pub fn code(mut self, code: StatusCode) -> Self {
+        self.status_code = code;
+        self
+    }
+
     pub fn insert_error(&mut self, field: &'static str, error: &str) {
         self.errors.insert(field, vec![error.to_string()]);
     }
 }
+
 
 impl fmt::Display for Errors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -89,6 +95,7 @@ impl From<ValidationErrors> for Errors {
 impl From<DieselError> for Errors {
     fn from(err: DieselError) -> Self {
         let mut errors = Errors::new();
+        error!("err: {}", err);
         errors.set_code(StatusCode::UNPROCESSABLE_ENTITY);
         if let DieselError::DatabaseError(DatabaseErrorKind::UniqueViolation, info) = &err {
             match info.constraint_name() {
@@ -96,6 +103,8 @@ impl From<DieselError> for Errors {
                 Some("users_email_key") => errors.insert_error("email", "duplicated"),
                 _ => errors.insert_error("constraint", "data already exists"),
             }
+        } else {
+            errors.insert_error("db", "");
         }
 
         errors
@@ -116,3 +125,4 @@ impl ResponseError for Errors {
         web::HttpResponse::build(self.status_code).json(self)
     }
 }
+

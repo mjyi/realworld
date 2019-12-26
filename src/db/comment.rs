@@ -94,10 +94,10 @@ pub fn get_comments(conn: &PgConnection, user_id: i32, slug: &str) -> Result<Com
 pub fn delete_comment(
     conn: &PgConnection,
     user_id: i32,
-    slug: String,
+    slug: &str,
     comment_id: i32,
 ) -> Result<usize, Error> {
-    let auth = diesel::select(exists(
+    diesel::select(exists(
         articles::table.filter(articles::slug.eq(slug).and(articles::author.eq(user_id))),
     ))
     .get_result::<bool>(conn)?;

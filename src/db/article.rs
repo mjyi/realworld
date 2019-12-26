@@ -1,7 +1,7 @@
 use super::*;
 use crate::schema::*;
 use chrono::{DateTime, Utc};
-use diesel::{deserialize::Queryable, pg::Pg, prelude::*, result::Error};
+use diesel::{prelude::*, result::Error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -11,7 +11,7 @@ pub struct Articles {
     pub articles_count: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Article {
     pub slug: String,
@@ -74,17 +74,21 @@ pub struct ArticleForm {
     pub author: i32,
 }
 
+#[derive(Deserialize, Default, Clone)]
+pub struct ArticleUpdate {
+    pub article: ArticleUpdateData,
+}
+
 #[derive(Deserialize, AsChangeset, Default, Clone)]
 #[table_name = "articles"]
-#[serde(rename_all = "camelCase")]
-pub struct ArticleUpdate {
+pub struct ArticleUpdateData {
     pub slug: Option<String>,
     pub title: Option<String>,
     pub description: Option<String>,
     pub body: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ArticleQuery {
     pub tag: Option<String>,
     pub author: Option<String>,
@@ -135,7 +139,8 @@ pub fn list_articles(
                     Article::build(article, author.to_profile(false)).favorite(favorited)
                 })
                 .collect()
-        })?;
+        })
+        .unwrap_or(vec![]);
     let articles_count = articles.len() as i64;
     Ok(Articles {
         articles,
@@ -172,8 +177,8 @@ pub fn feed(conn: &PgConnection, form: &ArticleQuery, user_id: i32) -> Result<Ar
                     Article::build(article, author.to_profile(false)).favorite(favorited)
                 })
                 .collect()
-        })?;
-
+        })
+        .unwrap_or(vec![]);
     let articles_count = articles.len() as i64;
     Ok(Articles {
         articles,
@@ -190,21 +195,40 @@ pub fn create(pg: &PgConnection, article: &ArticleForm) -> Result<Article, Error
     Ok(Article::build(db_article, profile))
 }
 
-pub fn update(conn: &PgConnection, slug: &str, article: &ArticleUpdate) -> Result<Article, Error> {
-    let article = diesel::update(articles::table.filter(articles::slug.eq(slug)))
-        .set(article)
-        .get_result::<ArticleData>(conn)?;
+pub fn get_article(pg: &PgConnection, slug: &str) -> Result<Article, Error> {
+    articles::table
+        .inner_join(users::table.on(articles::author.eq(users::id)))
+        .filter(articles::slug.eq(slug))
+        .select((articles::all_columns, users::all_columns))
+        .first::<(ArticleData, User)>(pg)
+        .map(|(a, u)| Article::build(a, u.to_profile(false)))
+}
+
+pub fn update(
+    conn: &PgConnection,
+    slug: &str,
+    user_id: i32,
+    article: &ArticleUpdateData,
+) -> Result<Article, Error> {
+    let article = diesel::update(
+        articles::table.filter(articles::slug.eq(slug).and(articles::author.eq(user_id))),
+    )
+    .set(article)
+    .get_result::<ArticleData>(conn)?;
 
     let author = User::read(conn, article.author)?;
 
     Ok(Article::build(article, author.to_profile(false)))
 }
 
-pub fn delete(conn: &PgConnection, slug: &str) -> Result<usize, Error> {
-    diesel::delete(articles::table.filter(articles::slug.eq(slug))).execute(conn)
+pub fn delete(conn: &PgConnection, user_id: i32, slug: &str) -> Result<usize, Error> {
+    diesel::delete(
+        articles::table.filter(articles::slug.eq(slug).and(articles::author.eq(user_id))),
+    )
+    .execute(conn)
 }
 
-pub fn favorite(conn: &PgConnection, user_id: i32,slug: &str) -> Result<Article, Error> {
+pub fn favorite(conn: &PgConnection, user_id: i32, slug: &str) -> Result<Article, Error> {
     conn.transaction::<_, Error, _>(|| {
         let article_data = diesel::update(articles::table.filter(articles::slug.eq(slug)))
             .set(articles::favorites_count.eq(articles::favorites_count + 1))
@@ -217,18 +241,18 @@ pub fn favorite(conn: &PgConnection, user_id: i32,slug: &str) -> Result<Article,
             .execute(conn)?;
         let p = Profile::find_follered(conn, user_id, article_data.author)?;
         
-        Ok(Article::build(article_data, p))
+        Ok(Article::build(article_data, p).favorite(true))
     })
 }
 
-pub fn unfavorite(conn: &PgConnection, user_id: i32,slug: &str) -> Result<Article, Error> {
+pub fn unfavorite(conn: &PgConnection, user_id: i32, slug: &str) -> Result<Article, Error> {
     conn.transaction::<_, Error, _>(|| {
         let article_data = diesel::update(articles::table.filter(articles::slug.eq(slug)))
             .set(articles::favorites_count.eq(articles::favorites_count - 1))
             .get_result::<ArticleData>(conn)?;
 
         diesel::delete(favorites::table.find((user_id, article_data.id))).execute(conn)?;
-        
+
         let p = Profile::find_follered(conn, user_id, article_data.author)?;
         Ok(Article::build(article_data, p))
     })
@@ -239,4 +263,3 @@ pub fn tag_list(conn: &PgConnection) -> Result<Vec<String>, Error> {
         .select(diesel::dsl::sql("distinct unnest(tag_list)"))
         .load::<String>(conn)
 }
-

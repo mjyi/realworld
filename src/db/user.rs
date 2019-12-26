@@ -1,5 +1,5 @@
 extern crate jsonwebtoken as jwt;
-use super::{ Profile, Crud };
+use super::{Crud, Profile};
 
 use crate::{
     auth::{Claims, Jwt},
@@ -7,7 +7,7 @@ use crate::{
 };
 use chrono::{Duration, Utc};
 use diesel::{deserialize::Queryable, pg::Pg, prelude::*, result::Error};
-use jwt::{ encode, Header };
+use jwt::{encode, Header};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]

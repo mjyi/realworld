@@ -1,7 +1,7 @@
 use super::*;
 use crate::schema::*;
 use diesel::{dsl::exists, prelude::*, result::Error};
-use serde::{ Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Profile {
@@ -35,8 +35,17 @@ impl Profile {
 
     pub fn find_follered(conn: &PgConnection, follower: i32, followed: i32) -> Result<Self, Error> {
         let p: Profile = users::table
-            .left_join(follows::table.on(follows::followed.eq(users::id)))
-            .select((users::all_columns, follows::followed.nullable().is_not_null()))
+            .left_join(
+                follows::table.on(follows::followed.eq(users::id).and(
+                    follows::followed
+                        .eq(followed)
+                        .and(follows::follower.eq(follower)),
+                )),
+            )
+            .select((
+                users::all_columns,
+                follows::followed.nullable().is_not_null(),
+            ))
             .get_result::<(User, bool)>(conn)
             .map(|(user, following)| user.to_profile(following))?;
         Ok(p)
@@ -58,14 +67,16 @@ impl Profile {
             .execute(conn)?;
 
         Ok(followed.to_profile(true))
-
     }
 
-    pub fn unfollow(conn: &PgConnection, followed_name: &str, follower: i32) -> Result<Self, Error> {
+    pub fn unfollow(
+        conn: &PgConnection,
+        followed_name: &str,
+        follower: i32,
+    ) -> Result<Self, Error> {
         let followed = User::with_username(conn, followed_name)?;
 
-        diesel::delete(follows::table.find((follower, followed.id)))
-            .execute(conn)?;
+        diesel::delete(follows::table.find((follower, followed.id))).execute(conn)?;
 
         Ok(followed.to_profile(false))
     }

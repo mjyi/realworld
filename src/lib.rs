@@ -5,12 +5,10 @@ extern crate diesel;
 #[macro_use]
 extern crate validator_derive;
 #[macro_use]
-extern crate serde_json;
+extern crate log;
 
-use actix_web::{
-    middleware, web, App, HttpServer, Result,
-};
 use actix_cors::Cors;
+use actix_web::{middleware, web, App, HttpServer, Result};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 use dotenv::dotenv;
@@ -78,7 +76,7 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
-            .wrap( Cors::new().max_age(3600).finish(),)
+            .wrap(Cors::new().max_age(3600).finish())
             .wrap(middleware::Logger::new("%a \"%r\" :: %s :: %b bytes %T"))
             .service(
                 web::scope("/api")
@@ -89,6 +87,8 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
                     .service(api::profile::get_profiles)
                     .service(api::profile::follow)
                     .service(api::profile::unfollow)
+                    .service(api::articles::list_articles)
+                    .service(api::articles::feed_articles)
                     .service(api::articles::get_article)
                     .service(api::articles::create_article)
                     .service(api::articles::update_article)
@@ -98,7 +98,7 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
                     .service(api::articles::delete_comment)
                     .service(api::articles::favorite)
                     .service(api::articles::unfavorite)
-                    .service(api::articles::tags)
+                    .service(api::articles::tags),
             )
     })
     .bind((settings.bind, settings.port))?
