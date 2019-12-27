@@ -102,7 +102,7 @@ pub async fn run(settings: Settings) -> Result<(), errors::CliError> {
             )
     })
     .bind((settings.bind, settings.port))?
-    .start()
+    .run()
     .await?;
 
     Ok(())
